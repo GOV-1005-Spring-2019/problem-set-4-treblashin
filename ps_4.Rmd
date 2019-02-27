@@ -1,0 +1,206 @@
+---
+title: "ps_04"
+author: "Albert Shin"
+date: "2/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(readxl)
+library(readr)
+library(gt)
+library(ggplot2)
+```
+
+```{r madlibs, echo=FALSE, message=FALSE}
+elections = read_csv("ps_4_elections-poll-nc09-3.csv")
+
+#There were X respondents who supported the Democratic candidate.
+# assign q1 to the value that we get
+q1 <-elections %>% 
+  # filter for responses that were "Dem"
+  filter(response == "Dem") %>%
+  # count the filtered responses
+  count()
+
+#There were X more respondents who favored the Republican candidate than who were Undecided.
+# assign the value we get to repfavor, to find the number of people who responded "Rep"
+repfavor <- elections %>% 
+  # select response (only variable we need)
+  select(response) %>% 
+  # filter for the responses that responded "Rep"
+  filter(response == "Rep") %>% 
+  # count the filtered responses
+  count()
+
+# assign the value we get to undecided, for the people who responded undecided
+undecided <- elections %>% 
+  # select response (only variable we need)
+  select(response) %>% 
+  # filter for the responses that responded "Und"
+  filter(response == "Und") %>% 
+  # count the filtered responses
+  count()
+
+# assign q2 to the difference between repfavor[1] and undecided[1]. We use the bracket 1 ([1]) because we are finding the first observation of repfavor and undecided
+q2 <- repfavor[1] - undecided[1]
+
+# There are two gender variables (gender and gender_combined). 
+#There are X individuals for whom these variables have different values.
+# assign the value we get to q3
+q3 <- elections %>% 
+  # select for gender and gender_combined, because we are trying to find people who have different values for these
+  select(gender, gender_combined) %>% 
+  # filter where the value of gender does not equal the value of gender combined
+  filter(gender != gender_combined) %>% 
+  # count these values
+  count()
+
+#There are X respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
+# assign the value we get to q4
+q4 <- elections %>% 
+  # select race_eth and file_race_black
+  select(race_eth, file_race_black) %>% 
+  # filter where race_ethnicity equals "White" because the first part of the problem is "X respondents listed as 'white'"
+  filter(race_eth == "White") %>% 
+  # filter where file_race_black is not listed as white, out of those whose race_eth is "White"
+  filter(file_race_black != "White") %>% 
+  # count these values
+  count()
+
+#The first response of Rep came X minutes (rounded to the nearest minute) before the first response of Dem.
+# find the earliest time of Dem 
+dem_time <- elections %>% 
+  # filters for only dem responses
+  filter(response == "Dem") %>% 
+  # pulls out a single observation value
+  pull(timestamp)
+
+# find the earliest time of Rep 
+rep_time <- elections %>% 
+  # filters for only rep responses
+  filter(response == "Rep") %>% 
+  # pulls out a single observation value
+  pull(timestamp)
+
+# assign q5 to the difference in timestamps between reptime and demtime
+q5 <-round(rep_time[1] - dem_time[1])
+```
+##Question 1
+<!-- answering the madlibs; used dynamic inline coding to produce the answer on the document --> 
+There were `r q1` respondents who supported the Democratic candidate.
+
+There were `r q2` more respondents who favored the Republican candidate than who were Undecided.
+
+There are two gender variables (gender and gender_combined). There are `r q3` individuals for whom these variables have different values.
+
+There are `r q4` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
+
+The first response of Dem came `r q5` minutes (rounded to the nearest minute) before the first response of Rep.
+
+##Question 2
+```{r table, echo=FALSE, warning=FALSE}
+table <- elections %>%
+  # select the variables we need: race/ethnicity, and final weight (for the percentage of total voters)
+  select(response, race_eth, final_weight) %>%
+  # Take out the entries who refused to say / don't know their ethnicity 
+  filter(race_eth != "[DO NOT READ] Don't know/Refused") %>%
+  # Use mutate in order to reorder the ethnicities in the correct order
+  mutate(race_eth = fct_relevel(race_eth, "White", "Black", "Hispanic", "Asian", "Other")) %>%
+  # group by response and then by race_eth to help calculate the individual table values
+  group_by(response, race_eth) %>%
+  # total equals the sum of the final weights - we add up the final weights because the totals of that are equivalent to the total amount of votes. Published results include weights 
+  summarize(total = sum(final_weight)) %>%
+  # reformats table. Takes the key(response) and value (total) and spreads them over multiple columns
+  spread(key = response, value = total, fill = 0) %>%
+  # changes total to sum of Dem responses + Rep responses + Und responses + third party responses
+  mutate(total = Dem + Rep + Und + `3`) %>%
+  # muates Dem and Rep and Und by dividing it by the total value (which is the sum of dem and rep and und and 3, so the total number of responses) 
+  mutate(Dem = Dem / total) %>%
+  mutate(Rep = Rep / total) %>%
+  mutate(Und = Und / total) %>%
+  # selects everything except for total and `3`, because we do not need those values 
+  select(-total, -`3`)
+
+gt(table) %>%
+  tab_header(
+    title = "Polling Results by Race in North Carolina's 9th Congressional District") %>% 
+  # Labels the columns (there is a blank column label for race_eth)
+  cols_label(
+    race_eth = "",
+    Dem = "DEM.",
+    Rep = "REP.",
+    Und = "UND."
+  ) %>%
+  # Adds a source note to the footer of a gt table. 
+    tab_source_note(source_note = "Source: New York Times Upshot/Siena College 2018 live polls") %>% 
+  # formats as a percent, and shows 0 decimal places
+  fmt_percent(columns = vars(Dem, Rep, Und),
+              decimals = 0) %>% 
+  # turn the 0 back into an NA
+  na_if(0) %>%
+  # reformats the NA to a dash 
+  fmt_missing(columns = vars(Und), rows = 4)
+```
+
+##Question 3
+```{r graph, echo=FALSE, message=FALSE, warning=FALSE, fig.width = 7.7}
+graph <- elections %>% 
+  # Select the values that are necessary
+  #we are graphing final weight against different levels of education, so we need both of those values
+  select(educ, final_weight) %>% 
+  # Take out values where the education was not recorded
+  filter(educ != "[DO NOT READ] Refused") %>% 
+  # Reorders the y axis of the graph (the education levels) to match the original graph
+  mutate(educ = fct_relevel(educ, "Grade school", "High school", "Some college or trade school", "Bachelors' degree", "Graduate or Professional Degree"))
+
+# Adds a plot, with the x axis being education and the y axis the final weight 
+ggplot(graph, aes(x = educ, y = final_weight)) +
+  # use geom_violin to match the graph used in the figure. geom_violin is a mirrored density plot 
+  geom_violin() + 
+  # jitter to add better visibility of the dots. Width - adds the amount of jitter. Size - changes the size of the dots
+  # alpha - changes the transparency of the dots aesthetically 
+  geom_jitter(width = 0.2, size = 1.0, alpha = 0.5) + 
+  # flips the coordinate values of educ and final_weight, because otherwise the violins show up as lines and not the mirroed density plots
+    coord_flip() +
+  # Adds the title, subtitle, and caption labels
+    labs(title = "More Educated Matter Less in North Carolina 9th ",
+          subtitle = "Poll gives more weight to people who are less likely to participate in polls",
+          caption = "New York Times Upshot/Siena College 2018 live polls") +
+  # Adds a y-axis label
+    ylab("Weight Given to Respondent in Calculating Poll Results")
+```
+
+##Question 4
+```{r, echo=FALSE}
+# I wanted to explore the Democrat/Republican voting patterns between men and women 
+# I assigned question4 to the dataset I filtered for the purposes of Question 4. 
+question4 <- elections %>%
+  # I selected gender and response because I was interested in seeing the relationship between these two variables. 
+  select(gender, response) %>%
+  # Because there are third party votes and Und votes, I filtered for Rep and Dem to filter for the two main parties
+  filter(response %in% c("Rep", "Dem")) %>% 
+  # I grouped by response and gender to get values for each gender's responses (i.e. how many women voted Republican, how many women voted democrat, how many men voted republican, how many men voted democrat). The first step is to group by response and gender.
+  group_by(response, gender) %>% 
+  # The second step is to count for each of these subsets. 
+  count()
+
+# created a graph, with x being response and y being the number in each subset. Fill is by response, so the fill is dependent on the type of response (i.e. different colors for Dem and Rep responses)
+ggplot(question4, aes(x = response, y = n, fill = response)) +
+  # geom_col column graph
+  geom_col() +
+  # facet wrap by gender
+  facet_wrap(~gender) +
+  # label the x axis
+  xlab(label = "Response by Gender") +
+  # label the y axis
+  ylab(label = "Number of Votes") + 
+  # label the title, subtitle, and caption
+  labs(title = "Number of Responses by Gender",
+       subtitle = "Votes for Democratic and Republican Candidates by Gender",
+       caption = "New York Times Upshot/Siena College 2018 live polls") +
+  # fill the colors manually, so that democrats are blue and republicans are red
+  scale_fill_manual(values=c("blue", "red"))
+# there are a lot of interesting insights that you can find when you split the data up into these four subsets. First, more men voted republican than democrat, and more women voted democrat than republican. Also, based on the data, it looks like more men than woman, even though the gender split is supposed to be 50/50. This may suggest women have lower voter turnout, or some other interest points. 
+```
