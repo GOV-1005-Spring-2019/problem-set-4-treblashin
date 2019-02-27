@@ -6,10 +6,13 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
+# tidyverse for necessary functions like mutate
 library(tidyverse)
-library(readxl)
+# package for read_csv
 library(readr)
+#package for creating a table
 library(gt)
+# package for creating a visual graph
 library(ggplot2)
 ```
 
@@ -204,4 +207,5 @@ ggplot(question4, aes(x = response, y = n, fill = response)) +
   scale_fill_manual(values=c("blue", "red"))
 # there are a lot of interesting insights that you can find when you split the data up into these four subsets. First, more men voted republican than democrat, and more women voted democrat than republican. Also, based on the data, it looks like more men than woman, even though the gender split is supposed to be 50/50. This may suggest women have lower voter turnout, or some other interest points. 
 ```
+
 Collaborators: Mike Silva, Jennifer Li, Neil Khurana
