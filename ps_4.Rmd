@@ -22,7 +22,7 @@ elections = read_csv("ps_4_elections-poll-nc09-3.csv")
 #There were X respondents who supported the Democratic candidate.
 # assign q1 to the value that we get
 q1 <-elections %>% 
-  # filter for responses that were "Dem"
+  # filter for responses that were "Dem". Used response == "Dem" because we are looking at respondents in particular.
   filter(response == "Dem") %>%
   # count the filtered responses
   count()
@@ -191,7 +191,7 @@ question4 <- elections %>%
 
 # created a graph, with x being response and y being the number in each subset. Fill is by response, so the fill is dependent on the type of response (i.e. different colors for Dem and Rep responses)
 ggplot(question4, aes(x = response, y = n, fill = response)) +
-  # geom_col column graph
+  # geom_col to create a column graph
   geom_col() +
   # facet wrap by gender
   facet_wrap(~gender) +
